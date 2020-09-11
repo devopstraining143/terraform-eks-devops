@@ -1,0 +1,35 @@
+# First Setup your Kubectl with newly created EKS Cluster
+aws eks --region us-east-2 update-kubeconfig --name devopstools-EKS-Cluster --profile opencloud
+
+# Install he EFS Drivers in EKS Cluster. (https://docs.aws.amazon.com/eks/latest/userguide/efs-csi.html)
+kubectl apply -k "github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=master"
+
+# Make sure you have Security group with NFS port and source as EKS VPC cidr and attached the SG to your cluster,
+  Node groups and EFS. This is required for EFS to connect with your Node EC2s.
+
+
+kubectl create clusterrolebinding permissive-binding --clusterrole=cluster-admin --user=admin --user=kubelet --group=system:serviceaccounts
+
+
+# Disable CSRF -  "Manage Jenkins" / "Script Console"
+
+import jenkins.model.Jenkins
+def instance = Jenkins.instance
+instance.setCrumbIssuer(null)
+
+# How to access Jenkins Server inside private subnet?
+kubectl expose deployment jenkins --type=LoadBalancer --name=jenkins-external
+
+
+# Useful commands
+
+kubectl get services
+kubectl port-forward jenkins-pod  7000:8080
+
+
+
+
+Using Ingress (Not required for this usecase)
+
+eksctl utils associate-iam-oidc-provider --region us-east-1 --cluster nextgen-sandbox-EKS-Cluster --approve --profile chintan
+>> not worked... access dei

@@ -1,0 +1,140 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: efs-sc
+provisioner: efs.csi.aws.com
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: efs-primary-volume
+  labels:
+    type: local
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: efs-sc
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: fs-883be7f0 # TODO
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-pv-primary-claim
+spec:
+  storageClassName: efs-sc
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+
+#apiVersion: extensions/v1beta1
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      containers:
+        - name: jenkins
+          image: devopstraining143/custom-jenkins:2.236 # TODO
+          securityContext:
+            privileged: false
+          env:
+            - name: JAVA_OPTS
+              value: -Djenkins.install.runSetupWizard=false
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: DOCKER_HOST
+              value: tcp://localhost:2375
+          ports:
+            - name: http-port
+              containerPort: 8080
+            - name: jnlp-port
+              containerPort: 50000
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            #- name: dockersock                # Used to access host docker
+            #  mountPath: "/var/run/docker.sock"
+        - name: dind
+          image: docker:18.05-dind
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: dind-storage
+              mountPath: /var/lib/docker
+      initContainers:
+      - name: set-jenkins-home-permissions
+        image: alpine:3.11
+        command:
+        - chown
+        - -R
+        - 1000:1000
+        - /var/jenkins_home
+        volumeMounts:
+        - name: jenkins-home
+          mountPath: /var/jenkins_home
+        - name: dind-storage
+          mountPath: /var/lib/docker
+        #- name: dockersock                      # Used to access host docker
+        #  mountPath: "/var/run/docker.sock"
+      volumes:
+        - name: jenkins-home
+          persistentVolumeClaim:
+            claimName: efs-pv-primary-claim
+        #- name: dockersock                      # Used to access host docker
+        #  hostPath:
+        #    path: /var/run/docker.sock
+        #    type: File
+        - name: dind-storage
+          emptyDir: {}
+
+
+---
+
+---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: jenkins-service
+#  namespace: default
+#spec:
+#  clusterIP: 172.20.106.225
+#  ports:
+#  - name: "8080"
+#    port: 8080
+#    protocol: TCP
+#    targetPort: 8080
+#  - name: "50000"
+#    port: 50000
+#    protocol: TCP
+#    targetPort: 50000
+#  selector:
+#    app: jenkins
+#  sessionAffinity: None
+#  type: ClusterIP
+#status:
+#  loadBalancer: {}

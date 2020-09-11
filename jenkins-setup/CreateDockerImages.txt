@@ -1,0 +1,31 @@
+# Create Jenkins Docker Image
+
+docker build -f 1-Dockerfile-jenkins -t custom-jenkins .
+docker build -f 1-Dockerfile-jenkins -t devopstraining143/custom-jenkins:2.236 .
+
+docker tag custom-jenkins devopstraining143/custom-jenkins:2.236
+
+docker push devopstraining143/custom-jenkins:2.236
+
+# Create Jenkins-Slave Docker Image. (IMP: Make sure you have jenkins-slave file in same directory)
+# Tag & Push the images to respective Docker hub accounts.
+
+
+# Jenkins Slave/Agent with JNLP
+docker build -f 2-Dockerfile-JNLP -t devopstraining143/custom-jenkins-jnlp .
+docker tag custom-jenkins-jnlp devopstraining143/custom-jenkins-jnlp
+docker push devopstraining143/custom-jenkins-jnlp
+
+
+
+
+### Pushing to AWS ECR ###
+
+aws ecr get-login --registry-ids 551587375342 --no-include-email --region us-east-1 --profile chintan
+
+run command return from above command
+
+docker tag custom-jenkins:latest 551587375342.dkr.ecr.us-east-1.amazonaws.com/custom-jenkins:latest
+
+docker push 551587375342.dkr.ecr.us-east-1.amazonaws.com/custom-jenkins:latest
+
